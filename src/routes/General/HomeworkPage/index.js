@@ -1,58 +1,29 @@
 import React from 'react'
-import { Row, Col, Card, Icon, Avatar, Button} from 'antd'
+import { Row, Col, Card, Icon, Avatar, Button, Tag} from 'antd'
 import { Link } from 'react-router-dom'
 
 import CustomBreadcrumb from '../../../components/CustomBreadcrumb/index'
 
 const color = ['#87d068', '#fde3cf', '#eb2f96']
+const img = ['https://img.gmz88.com/uploadimg/image/20190411/20190411142532_63955.jpg',
+            'https://img.gmz88.com/uploadimg/image/20190411/20190411142532_88121.jpg',
+            'https://img.gmz88.com/uploadimg/image/20190411/20190411142532_34565.jpg',
+            'https://img.gmz88.com/uploadimg/image/20190411/20190411142532_87804.jpg']
 class HomeworkPage extends React.Component {
   state = {
     size: 'default',
-    homeworks: [
-      {
-        'id': 0,
-        'book': {
-          'name':'cpp',
-          'img': "https://gw.alipayobjects.com/zos/rmsportal/JiqGstEfoWAOHiTxclqi.png"
-        },
-        'title':'过程建模作业',
-        'description': '过程建模作业',
-        'requirement': '阅读课件进行批注',
-        'deadline': '2019-12-28',
-        'publishDate': '2019-11-28',
-        'submitterName': '潘博'
-      },
-      {
-        'id': 2,
-        'book': {
-          'name':'cpp',
-          'img': "https://gw.alipayobjects.com/zos/rmsportal/JiqGstEfoWAOHiTxclqi.png"
-        },
-        'title':'软件项目管理作业',
-        'description': '软件项目管理作业',
-        'requirement': '阅读课件进行批注',
-        'deadline': '2019-12-28',
-        'publishDate': '2019-11-28',
-        'submitterName': '姚博'
-      },
-      {
-        'id': 3,
-        'book': {
-          'name':'cpp',
-          'img': "https://gw.alipayobjects.com/zos/rmsportal/JiqGstEfoWAOHiTxclqi.png"
-        },
-        'title':'毕业设计',
-        'description': '毕业设计',
-        'requirement': '阅读毕业设计相关要求进行批注',
-        'deadline': '2019-12-28',
-        'publishDate': '2019-11-28',
-        'submitterName': '姚博'
-      }
-    ]
+    homeworks: []
   }
 
-  jumpToHomeworkDetail = (hwid) => {
-
+  componentDidMount = () => {
+    fetch("http://121.43.40.151:8080/homework/getall", {
+      method: 'GET'
+    })
+    .then(res => res.json())
+    .then(res => {
+      res.reverse();
+      this.setState({homeworks: res});
+    })
   }
 
   render() {
@@ -71,7 +42,29 @@ class HomeworkPage extends React.Component {
             {
               homeworks.map((value, key) => {
                 console.log(value.description.length)
-                const title = value.title.length > 10 ? value.title.substr(0, 10)+' ...' : value.title;
+                value.title === null ? value.title = 'null' : value.title;
+                value.description === null ? value.description = 'null' : value.description; 
+                const publishDate = new Date(value.publishDate)
+                const deadline = new Date(value.deadline)
+                const today = new Date()
+                const unopened = today.getTime() < publishDate.getTime()
+                const expired = today.getTime() > deadline.getTime()
+                
+                let color, tagText;
+                if (unopened){
+                  color = 'geekblue';
+                  tagText = '未开放';
+                }
+                else if (expired){
+                    color = 'volcano';
+                    tagText = '已结束';
+                }
+                else{
+                    color = 'green';
+                    tagText = '进行中';
+                }
+                let titleString = value.title.length > 10 ? value.title.substr(0, 10)+' ...' : value.title;
+                let title = <div><span>{titleString}</span> <Tag color={color}>{tagText}</Tag></div>
                 const description = value.description.length > 10 ? value.description.substr(0, 10)+' ......' : value.description;
                 return (
                   <Col span={5}>
@@ -79,7 +72,7 @@ class HomeworkPage extends React.Component {
                     className='card-item'
                     key={key}
                     style={{ width: 300 }} 
-                    cover={<img alt={value.book.name} src={value.book.img} />}
+                    cover={<img alt={"book"} src={img[key % img.length]} />}
                     actions={[
                       <Link to={"/home/general/homework/"+value.id}>
                         <Icon type="unordered-list" key="unordered-list"/>

@@ -1,5 +1,5 @@
 import React from 'react'
-import {  Button, Card, Table, Input, Tag, Icon, Rate, Typography, Radio } from 'antd'
+import {  Button, Card, Table, Input, Tag, Icon, Rate, Typography, Radio, message } from 'antd'
 import { Link } from 'react-router-dom'
 import CustomBreadcrumb from '../../../../../components/CustomBreadcrumb/index'
 const { Text } = Typography;
@@ -30,62 +30,39 @@ const flatten = (data) => {
 
 class HomeworkResult extends React.Component {
   state = {
-    homework:  {
-        'id': 0,
-        'book': {
-          'name':'cpp',
-          'img': "https://gw.alipayobjects.com/zos/rmsportal/JiqGstEfoWAOHiTxclqi.png"
-        },
-        'title': '过程建模作业',
-        'description': '过程建模作业',
-        'requirement': '阅读课件进行批注',
-        'deadline': '2019-12-28',
-        'publishDate': '2019-11-28',
-        'submitterName': '潘博'
-    },
-    homeworkResult: {
-      'id':0,
-      'homeworkId':0,
-      'authorName':'姚博',
-      'evaluation':{
-        'score': 0,
-        'comment': '无'
-      },
-      'annotationList': [
-          {
-              "id": 0, 
-              "annotatedRange":{},
-              "annotatedContent": "我有一头小毛驴",
-              "annotationText":"这句写的不错",
-              "evaluation":{
-                  "score":"0",
-                  "comment":"这啥玩意儿"
-              },
-              "state":"COMMITTED",
-              "excellent":false,
-          },
-          {
-              "id": 1, 
-              "annotatedRange":{},
-              "annotatedContent": "我有两头小毛驴",
-              "annotationText":"这句也写的不错",
-              "evaluation":{
-                  "score":"0",
-                  "comment":"这啥玩意儿"
-              },
-              "state":"COMMITTED",
-              "excellent":false
-          }
-      ],
-      'state':'COMMITTED'
-    }
+    homework:  {},
+    homeworkResult: {"evaluation":{}},
   }
 
-  onChange = (id, event) => {
+  componentDidMount = () => {
+    const hwid = this.props.match.params.hwid;
+    const hwrsid = this.props.match.params.hwrsid;
+    fetch("http://121.43.40.151:8080/homework/get?id="+hwid, {
+      method: 'GET'
+    })
+    .then(res => res.json())
+    .then(res => {
+      this.setState({homework: res});
+    })
+
+    fetch("http://121.43.40.151:8080/homeworkres/get?id="+hwrsid, {
+      method: 'GET'
+    })
+    .then(res => res.json())
+    .then(res => {
+      let annotationList = res["annotationList"];
+      for (let i in annotationList){
+        annotationList[i]["key"] = Number(i);
+      }
+      this.setState({homeworkResult: res});
+    })
+  }
+
+  onChange = (key, event) => {
     let { homeworkResult } = this.state;
     for ( let i in homeworkResult.annotationList){
       let annotation = homeworkResult.annotationList[i];
-      if (annotation.id === id){
+      if (annotation.key === key){
         annotation[event.target.name] = event.target.value; 
         break;
       }
@@ -93,7 +70,7 @@ class HomeworkResult extends React.Component {
     this.setState({ homeworkResult });
   }
 
-  evaluationOnChange = (id, event) => {
+  evaluationOnChange = (key, event) => {
     let { homeworkResult } = this.state;
     let value;
     if (event.target.name === "score")
@@ -102,7 +79,7 @@ class HomeworkResult extends React.Component {
       value = event.target.value;
     for ( let i in homeworkResult.annotationList){
       let annotation = homeworkResult.annotationList[i];
-      if (annotation.id === id){
+      if (annotation.key === key){
         annotation.evaluation[event.target.name] = value; 
         break;
       }
@@ -110,21 +87,20 @@ class HomeworkResult extends React.Component {
     this.setState({ homeworkResult });
   }
 
-  handleEdit = (id, event) => {
+  handleEdit = (key, event) => {
     event.preventDefault();
     let { homeworkResult } = this.state;
     for ( let i in homeworkResult.annotationList){
       let annotation = homeworkResult.annotationList[i];
-      if (annotation.id === id){
+      if (annotation.key === key){
         annotation.edit = true;
         break;
       }
     }
-    console.log(homeworkResult)
     this.setState({ homeworkResult });
   }
 
-  handleSubmit = (id, event) => {
+  handleSubmit = (key, event) => {
     event.preventDefault();
     let { homeworkResult } = this.state;
     let resEvaluated = true;
@@ -132,21 +108,39 @@ class HomeworkResult extends React.Component {
     let annotationList = homeworkResult.annotationList
     for ( let i in annotationList){
       let annotation = annotationList[i];
-      if (annotation.id === id){
-        annotation.state = "EVALUATED"; 
+      if (annotation.key === key){
+        annotation.state.type ="EVALUATED"; 
         annotation.edit = false;
       }
 
-      if (annotation.state != "EVALUATED"){
+      if (annotation.state.type !== "EVALUATED"){
         resEvaluated = false;
       }
       sum += annotation.evaluation.score;
     }
     if (resEvaluated){
-      homeworkResult.state = "EVALUATED"
+      homeworkResult.state = "EVALUATED";
       homeworkResult.evaluation.score = sum / Number(annotationList.length);
+      homeworkResult.evaluation.comment = "已阅";
     }
-    this.setState({ homeworkResult })
+    else{
+      homeworkResult.evaluation.score = sum / Number(annotationList.length);
+      homeworkResult.evaluation.comment = "无";
+    }
+
+    fetch("http://121.43.40.151:8080/homeworkres/evaluate", {
+      method: 'PUT',
+      headers:{
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(homeworkResult)
+    })
+    .then(res => res.json())
+    .then(res => {
+      this.setState({ homeworkResult })
+      message.success('提交成功')
+    })
+    
   }
 
   columns = [
@@ -162,11 +156,11 @@ class HomeworkResult extends React.Component {
     },
     {
       title: '状态',
-      key: 'state',
-      dataIndex: 'state',
+      key: 'state.type',
+      dataIndex: 'state.type',
       render: tag => {
             let color, tagText;
-            if (tag === 'COMMITTED'){
+            if (tag === 'UNEVALUATED'){
                 color = 'volcano';
                 tagText = '未批改';
             }
@@ -190,7 +184,7 @@ class HomeworkResult extends React.Component {
         render: (text, record) => {
           if (record.edit)
             return (
-              <Input type="number" name="score" defaultValue={text} onChange={(e) => this.evaluationOnChange(record.id, e)}/>
+              <Input type="number" name="score" defaultValue={text} onChange={(e) => this.evaluationOnChange(record.key, e)}/>
             )
           else 
             return (
@@ -205,7 +199,7 @@ class HomeworkResult extends React.Component {
         render: (text, record) => {
           if (record.edit)
             return (
-              <Input type="text" name="comment" defaultValue={text} onChange={(e) => this.evaluationOnChange(record.id, e)}/>
+              <Input type="text" name="comment" defaultValue={text} onChange={(e) => this.evaluationOnChange(record.key, e)}/>
             )
           else 
             return (
@@ -226,7 +220,7 @@ class HomeworkResult extends React.Component {
           }
           else
             return (
-              <Radio.Group name="excellent" defaultValue={false} value={record.excellent} onChange={(e) => this.onChange(record.id, e)}>
+              <Radio.Group name="excellent" defaultValue={false} value={record.excellent} onChange={(e) => this.onChange(record.key, e)}>
                 <Radio value={true}>是</Radio>
                 <Radio value={false}>否</Radio>
               </Radio.Group>
@@ -237,10 +231,11 @@ class HomeworkResult extends React.Component {
         title: '操作',
         key: 'action',
         render: (text, record) => {
+          console.log(record)
           if (record.edit){
             return (
               <span>
-              <Button shape="circle" type="primary" onClick={(e) => this.handleSubmit(record.id, e)}>
+              <Button shape="circle" type="primary" onClick={(e) => this.handleSubmit(record.key, e)}>
               <Icon type="check" />
               </Button>
               &nbsp;
@@ -252,7 +247,7 @@ class HomeworkResult extends React.Component {
           }
           else 
             return (
-              <Button shape="circle" type="default" onClick={(e) => this.handleEdit(record.id, e)}>
+              <Button shape="circle" type="default" onClick={(e) => this.handleEdit(record.key, e)}>
               <Icon type="edit" key="edit"/>
               </Button>
             )
@@ -277,7 +272,11 @@ class HomeworkResult extends React.Component {
     const hwrsid = this.props.match.params.hwrsid;
 
     const { homework, homeworkResult } = this.state;
-    const title = 
+    const evaluation = homeworkResult.evaluation;
+    const score = homeworkResult.evaluation.score;
+    
+    
+    let title = 
     <div>
       <div>
         <span style={{float:'left'}}><Text>{"作业标题： "+homework.title}</Text></span>
@@ -291,12 +290,11 @@ class HomeworkResult extends React.Component {
         <br/>
         <Text>{homework.requirement}</Text>
         </span>
-        <span style={{float:'right'}}><Rate disabled allowHalf value={homeworkResult.evaluation.score * 5 / 100} /></span>
+        <span style={{float:'right'}}><Rate disabled allowHalf value={score * 5 / 100} /></span>
 
       </div>
     </div>
-
-    //console.log(homeworkResult.evaluation.score)
+    
     return (
       <div>
         <CustomBreadcrumb arr={['基本','作业', homework.description, homeworkResult.authorName]}/>

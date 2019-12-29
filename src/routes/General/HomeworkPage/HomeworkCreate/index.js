@@ -1,30 +1,32 @@
 import React from 'react'
-import {Card, Tooltip, Icon, Form, Select, Input, Button, message, BackTop} from 'antd'
+import {Card, Tooltip, Icon, Form, Select, Input, Button, message, BackTop, DatePicker} from 'antd'
 import CustomBreadcrumb from '../../../../components/CustomBreadcrumb/index'
 
 const FormItem = Form.Item;
 const { TextArea } = Input;
 const { Option } = Select;
 
+const dateToString = (date) => (date.toLocaleDateString([],{year:"numeric", month:"2-digit", day:"2-digit"}).replace(/\//g,'-'));
+const today = () => dateToString(new Date());
+
 @Form.create()
 class HomeworkCreate extends React.Component {
   state = {
     text: '获取验证码',
     disabled: false,
-    books:[
-        {
-        name: '高等数学',
-        id: '0',
-      },
-      {
-        name: '线性代数',
-        id: '1',
-      },
-      {
-        name: '软件工程导论',
-        id: '2',
-      }]
+    books:[]
   }
+
+  componentDidMount = () => {
+    fetch("http://121.43.40.151:8080/book/getall", {
+      method: 'GET'
+    })
+    .then(res => res.json())
+    .then(res => {
+      this.setState({books: res});
+    })
+  }
+
   timer = 0
   countdown = (e) => {
     let time = 60
@@ -46,14 +48,25 @@ class HomeworkCreate extends React.Component {
       }
     }, 1000)
   }
+
   handleSubmit = (e) => {
     e.preventDefault();
     this.props.form.validateFieldsAndScroll((err, values) => {
       if (err) {
         message.warning('请先填写正确的表单')
       } else {
-        message.success('提交成功')
-        console.log(values)
+        console.log(values);
+        values["book"] = this.state.books[values.bookKey];
+        values["submitterName"] = "潘博";
+        fetch("http://121.43.40.151:8080/homework/add", {
+          method: 'POST',
+          headers:{
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(values)
+        })
+        .then(res => res.json())
+        .then(res => message.success('提交成功'))
       }
     });
   }
@@ -63,7 +76,7 @@ class HomeworkCreate extends React.Component {
   }
 
   render() {
-    const { getFieldDecorator, getFieldValue } = this.props.form
+    const { getFieldDecorator} = this.props.form
     const { books } = this.state;
     const formItemLayout = {
       labelCol: {
@@ -88,7 +101,6 @@ class HomeworkCreate extends React.Component {
       },
     }
 
-    const submitDisabled = !(getFieldValue('title') && getFieldValue('bookid'));
     return (
       <div>
         <CustomBreadcrumb arr={['基本','作业','新建作业']}/>
@@ -103,7 +115,7 @@ class HomeworkCreate extends React.Component {
               </span>
             )} {...formItemLayout} required>
               {
-                getFieldDecorator('bookid', {
+                getFieldDecorator('bookKey', {
                   rules: [
                     {
                       required: true,
@@ -115,7 +127,7 @@ class HomeworkCreate extends React.Component {
                     {
                         books.map((value, key) => {
                             return (
-                                <Option value={value.id}>{value.name}</Option>
+                                <Option key={key} value={key}>{value.bookName}</Option>
                             )
                         })
                     }
@@ -138,6 +150,36 @@ class HomeworkCreate extends React.Component {
                 })(
                     <Input/>
                 )
+              }
+            </FormItem>
+            <FormItem {...formItemLayout} label={(<span>
+                开始日期&nbsp;
+                <Tooltip title='请选择开始日期'>
+                  <Icon type='question-circle-o'/>
+                </Tooltip>
+              </span>
+            )} required>
+              {
+                getFieldDecorator('publishDate', {
+                  rules: []
+                })(
+                <DatePicker style={{width: '100%'}}/>
+              )
+              }
+            </FormItem>
+            <FormItem {...formItemLayout} label={(<span>
+                截止日期&nbsp;
+                <Tooltip title='请选择截止日期'>
+                  <Icon type='question-circle-o'/>
+                </Tooltip>
+              </span>
+            )} required>
+              {
+                getFieldDecorator('deadline', {
+                  rules: []
+                })(
+                <DatePicker style={{width: '100%'}}/>
+              )
               }
             </FormItem>
             <FormItem {...formItemLayout} label={(
@@ -173,7 +215,7 @@ class HomeworkCreate extends React.Component {
               }
             </FormItem>
             <FormItem style={{textAlign: 'center'}} {...tailFormItemLayout}>
-              <Button type="primary" htmlType="submit" disabled={submitDisabled}>提交</Button>
+              <Button type="primary" htmlType="submit">提交</Button>
             </FormItem>
           </Form>
         </Card>

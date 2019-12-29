@@ -33,43 +33,28 @@ const flatten = (data) => {
 class HomeworkDetail extends React.Component {
   state = {
     size: 'default',
-    homework:  {
-        'id': 0,
-        'book': {
-          'name':'cpp',
-          'img': "https://gw.alipayobjects.com/zos/rmsportal/JiqGstEfoWAOHiTxclqi.png"
-        },
-        'title': '过程建模作业',
-        'description': '过程建模作业',
-        'requirement': '阅读课件进行批注',
-        'deadline': '2019-12-28',
-        'publishDate': '2019-11-28',
-        'submitterName': '潘博'
-    },
-    homeworkResults: [
-        {
-            'id':0,
-            'homeworkId':0,
-            'authorName':'姚博',
-            'annotationList': [],
-            'evaluation':{
-                'score': 50,
-                'comment': '后端写的太慢了'
-            },
-            'state':'EVALUATED'
-        },
-        {
-            'id':1,
-            'homeworkId':0,
-            'authorName':'潘博',
-            'annotationList': [],
-            'evaluation':{
-                'score': 0,
-                'comment': '无'
-            },
-            'state':'COMMITTED'
-        }
-    ]
+    homework:  {},
+    homeworkResults: []
+  }
+
+  componentDidMount = () => {
+    const hwid = this.props.match.params.hwid;
+
+    fetch("http://121.43.40.151:8080/homework/get?id="+hwid, {
+      method: 'GET'
+    })
+    .then(res => res.json())
+    .then(res => {
+      this.setState({homework: res});
+    })
+
+    fetch("http://121.43.40.151:8080/homeworkres/byhomework?homework_id="+hwid, {
+      method: 'GET'
+    })
+    .then(res => res.json())
+    .then(res => {
+      this.setState({homeworkResults: res});
+    })
   }
 
   columns = [
@@ -90,7 +75,7 @@ class HomeworkDetail extends React.Component {
       dataIndex: 'state',
       render: tag => {
             let color, tagText;
-            if (tag === 'COMMITTED'){
+            if (tag === 'UNEVALUATED'){
                 color = 'volcano';
                 tagText = '未批改';
             }
@@ -118,7 +103,7 @@ class HomeworkDetail extends React.Component {
       key: 'action',
       render: (text, record) => (
         <span>
-          <Link to={"/home/general/homework/"+this.props.match.params.hwid+"/"+record.id}><Button type="primary">查看</Button></Link>
+          <Link to={"/home/general/homework/"+this.props.match.params.hwid+"/"+record.databaseId}><Button type="primary">查看</Button></Link>
         </span>
       ),
     },
@@ -128,13 +113,13 @@ class HomeworkDetail extends React.Component {
     let res = [];
     for (let i in homeworkResults){
         let temp = homeworkResults[i];
-        console.log(temp)
+        //console.log(temp)
         delete temp["annotationList"];
         temp = flatten(temp);
-        console.log(temp)
+        //console.log(temp)
         res.push(temp);
     }
-    console.log(res)
+    //console.log(res)
     return res;
   }
 
